@@ -1,4 +1,4 @@
-const SIZE: usize = 4;
+pub const SIZE: usize = 4;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum CodePeg {
@@ -21,13 +21,13 @@ impl Code {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ScorePeg {
     Black,
     White,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Score {
     pegs: [Option<ScorePeg>; SIZE],
 }
@@ -47,7 +47,7 @@ impl Scorer {
         Scorer { code }
     }
 
-    pub fn score(self, guess: Code) -> Score {
+    pub fn score(&self, guess: Code) -> Score {
         let mut score_accumulator: Vec<ScorePeg> = Vec::with_capacity(SIZE);
 
         let mut score_peg_not_matched: Vec<CodePeg> = Vec::with_capacity(SIZE);
@@ -78,8 +78,46 @@ impl Scorer {
     }
 }
 
+pub trait CodeMaker {
+    fn make_code(&self) -> Code;
+}
+
+pub trait CodeBreaker {
+    fn guess_code(&self) -> Code;
+    fn set_score(&mut self, score: Score);
+    fn loses(&mut self);
+}
+
+pub struct Game<'a, T: CodeMaker, U: CodeBreaker> {
+    max_round: usize,
+    code_maker: &'a T,
+    code_breaker: &'a mut U,
+}
+
+impl<'a, T: CodeMaker, U: CodeBreaker> Game<'a, T, U> {
+    pub fn new(max_round: usize, code_maker: &'a T, code_breaker: &'a mut U) -> Self {
+        Game {
+            max_round,
+            code_maker,
+            code_breaker,
+        }
+    }
+
+    pub fn play(self) {
+        let scorer = Scorer::new(self.code_maker.make_code());
+        for _round in 0..self.max_round {
+            let score = scorer.score(self.code_breaker.guess_code());
+            self.code_breaker.set_score(score);
+            if score == Score::new([Some(ScorePeg::Black); SIZE]) {
+                return;
+            }
+        }
+        self.code_breaker.loses();
+    }
+}
+
 #[cfg(test)]
-mod tests {
+mod test_scorer {
     use super::*;
 
     struct TestCase<'a> {
@@ -145,5 +183,92 @@ mod tests {
             let score = scorer.score(test_case.guess);
             assert_eq!(score, test_case.score, "test case{}", test_case.name,);
         }
+    }
+}
+
+#[cfg(test)]
+mod test_game {
+    use super::*;
+
+    struct DeterministicCodeMaker {
+        code: Code,
+    }
+
+    impl DeterministicCodeMaker {
+        fn new(code: Code) -> Self {
+            DeterministicCodeMaker { code }
+        }
+    }
+
+    impl CodeMaker for DeterministicCodeMaker {
+        fn make_code(&self) -> Code {
+            self.code
+        }
+    }
+
+    struct DummyCodeBreaker {
+        code: Code,
+        has_won: bool,
+        has_lost: bool,
+        num_rounds: usize,
+    }
+
+    impl DummyCodeBreaker {
+        fn new(code: Code) -> Self {
+            DummyCodeBreaker {
+                code,
+                has_won: false,
+                has_lost: false,
+                num_rounds: 0,
+            }
+        }
+    }
+
+    impl CodeBreaker for DummyCodeBreaker {
+        fn guess_code(&self) -> Code {
+            self.code
+        }
+
+        fn set_score(&mut self, score: Score) {
+            self.num_rounds += 1;
+            if score != Score::new([Some(ScorePeg::Black); SIZE]) {
+                return;
+            }
+            self.has_won = true;
+        }
+
+        fn loses(&mut self) {
+            self.has_lost = true;
+        }
+    }
+
+    #[test]
+    fn wins_at_first_guess() {
+        let code = Code::new([CodePeg::B, CodePeg::B, CodePeg::A, CodePeg::E]);
+        let code_maker = DeterministicCodeMaker::new(code);
+        let mut code_breaker = DummyCodeBreaker::new(code);
+        let game = Game::new(3, &code_maker, &mut code_breaker);
+        game.play();
+        assert!(code_breaker.has_won);
+        assert!(!code_breaker.has_lost);
+        assert_eq!(code_breaker.num_rounds, 1);
+    }
+
+    #[test]
+    fn loses() {
+        let num_round = 8;
+        let code_maker = DeterministicCodeMaker::new(Code::new([
+            CodePeg::A,
+            CodePeg::E,
+            CodePeg::F,
+            CodePeg::C,
+        ]));
+        let mut code_breaker =
+            DummyCodeBreaker::new(Code::new([CodePeg::B, CodePeg::B, CodePeg::F, CodePeg::D]));
+        let game = Game::new(num_round, &code_maker, &mut code_breaker);
+        game.play();
+        assert!(code_breaker.has_lost);
+        assert!(!code_breaker.has_won);
+        assert_eq!(code_breaker.num_rounds, num_round);
     }
 }
