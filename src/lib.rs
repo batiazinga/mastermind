@@ -23,8 +23,8 @@ impl Code {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ScorePeg {
-    Black,
-    White,
+    Match,
+    Present,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -55,7 +55,7 @@ impl Scorer {
 
         for i in 0..SIZE {
             if self.code.pegs[i] == guess.pegs[i] {
-                score_accumulator.push(ScorePeg::Black);
+                score_accumulator.push(ScorePeg::Match);
             } else {
                 score_peg_not_matched.push(self.code.pegs[i]);
                 guess_peg_not_matched.push(guess.pegs[i]);
@@ -65,7 +65,7 @@ impl Scorer {
         for peg in guess_peg_not_matched {
             let index = score_peg_not_matched.iter().position(|&item| item == peg);
             if let Some(i) = index {
-                score_accumulator.push(ScorePeg::White);
+                score_accumulator.push(ScorePeg::Present);
                 score_peg_not_matched.remove(i);
             }
         }
@@ -108,7 +108,7 @@ impl<'a, T: CodeMaker, U: CodeBreaker> Game<'a, T, U> {
         for _round in 0..self.max_round {
             let score = scorer.score(self.code_breaker.guess_code());
             self.code_breaker.set_score(score);
-            if score == Score::new([Some(ScorePeg::Black); SIZE]) {
+            if score == Score::new([Some(ScorePeg::Match); SIZE]) {
                 return;
             }
         }
@@ -141,40 +141,40 @@ mod test_scorer {
                 code: Code::new([CodePeg::A, CodePeg::B, CodePeg::C, CodePeg::D]),
                 guess: Code::new([CodePeg::A, CodePeg::B, CodePeg::C, CodePeg::D]),
                 score: Score::new([
-                    Some(ScorePeg::Black),
-                    Some(ScorePeg::Black),
-                    Some(ScorePeg::Black),
-                    Some(ScorePeg::Black),
+                    Some(ScorePeg::Match),
+                    Some(ScorePeg::Match),
+                    Some(ScorePeg::Match),
+                    Some(ScorePeg::Match),
                 ]),
             },
             TestCase {
-                name: "match_all_colors_with_wrong_positions",
+                name: "all_present_with_wrong_positions",
                 code: Code::new([CodePeg::A, CodePeg::B, CodePeg::C, CodePeg::D]),
                 guess: Code::new([CodePeg::D, CodePeg::C, CodePeg::B, CodePeg::A]),
                 score: Score::new([
-                    Some(ScorePeg::White),
-                    Some(ScorePeg::White),
-                    Some(ScorePeg::White),
-                    Some(ScorePeg::White),
+                    Some(ScorePeg::Present),
+                    Some(ScorePeg::Present),
+                    Some(ScorePeg::Present),
+                    Some(ScorePeg::Present),
                 ]),
             },
             TestCase {
-                name: "two_blacks",
+                name: "two_matches",
                 code: Code::new([CodePeg::C, CodePeg::C, CodePeg::A, CodePeg::F]),
                 guess: Code::new([CodePeg::C, CodePeg::D, CodePeg::D, CodePeg::F]),
-                score: Score::new([Some(ScorePeg::Black), Some(ScorePeg::Black), None, None]),
+                score: Score::new([Some(ScorePeg::Match), Some(ScorePeg::Match), None, None]),
             },
             TestCase {
-                name: "black_and_white",
+                name: "match_and_present",
                 code: Code::new([CodePeg::A, CodePeg::C, CodePeg::E, CodePeg::F]),
                 guess: Code::new([CodePeg::C, CodePeg::D, CodePeg::D, CodePeg::F]),
-                score: Score::new([Some(ScorePeg::Black), Some(ScorePeg::White), None, None]),
+                score: Score::new([Some(ScorePeg::Match), Some(ScorePeg::Present), None, None]),
             },
             TestCase {
                 name: "count_match_only_once",
                 code: Code::new([CodePeg::A, CodePeg::B, CodePeg::E, CodePeg::F]),
                 guess: Code::new([CodePeg::A, CodePeg::A, CodePeg::D, CodePeg::D]),
-                score: Score::new([Some(ScorePeg::Black), None, None, None]),
+                score: Score::new([Some(ScorePeg::Match), None, None, None]),
             },
         ];
 
@@ -231,7 +231,7 @@ mod test_game {
 
         fn set_score(&mut self, score: Score) {
             self.num_rounds += 1;
-            if score != Score::new([Some(ScorePeg::Black); SIZE]) {
+            if score != Score::new([Some(ScorePeg::Match); SIZE]) {
                 return;
             }
             self.has_won = true;
