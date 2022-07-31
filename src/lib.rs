@@ -1,6 +1,6 @@
 pub const SIZE: usize = 4;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CodePeg {
     A,
     B,
@@ -8,6 +8,43 @@ pub enum CodePeg {
     D,
     E,
     F,
+}
+
+impl TryFrom<u16> for CodePeg {
+    type Error = &'static str;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            u if u == CodePeg::A as u16 => Ok(CodePeg::A),
+            u if u == CodePeg::B as u16 => Ok(CodePeg::B),
+            u if u == CodePeg::C as u16 => Ok(CodePeg::C),
+            u if u == CodePeg::D as u16 => Ok(CodePeg::D),
+            u if u == CodePeg::E as u16 => Ok(CodePeg::E),
+            u if u == CodePeg::F as u16 => Ok(CodePeg::F),
+            _ => Err("CodePeg expects values from 0 to 5!"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_code_peg_convertion {
+    use super::*;
+
+    #[test]
+    fn u16_from_code_peg() {
+        let peg = CodePeg::A;
+        let as_u16 = peg as u16;
+        assert_eq!(as_u16, 0);
+    }
+
+    #[test]
+    fn code_peg_from_int16() {
+        let valid: u16 = 2;
+        assert_eq!(CodePeg::try_from(valid).unwrap(), CodePeg::C);
+
+        let invalid: u16 = 6;
+        assert!(CodePeg::try_from(invalid).is_err());
+    }
 }
 
 #[derive(Clone, Copy)]
